@@ -49,6 +49,15 @@ module.exports = {
     return { id: result.insertId, ...course }
   },
 
+  // --- used by the MySQL -> Supabase sync (no ids: Supabase makes its own; email / mysql_id link the rows)
+  listAllUsers: () =>
+    all('SELECT name, email, password_hash, role, created_at FROM users ORDER BY id'),
+
+  listAllCourses: () =>
+    all(`SELECT c.id, c.title, c.created_at, u.email AS teacher_email
+         FROM courses c JOIN users u ON u.id = c.teacher_id
+         ORDER BY c.id`),
+
   // --- used by the scheduled report (NOW() is the database's own clock, so no timezone mix-ups)
   listStudentsSince: (minutes) =>
     all(`SELECT id, name, email, created_at FROM users

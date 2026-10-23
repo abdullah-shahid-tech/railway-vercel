@@ -2,8 +2,9 @@
 // Not behind JWT login: a robot has no account, so it sends the secret in the "x-cron-secret" header.
 const router = require('express').Router()
 const crypto = require('crypto')
-const { cronSecret } = require('../config')
+const { cronSecret, syncEnabled } = require('../config')
 const { buildReport, formatReport } = require('../jobs/report')
+const { runSync, formatSync } = require('../jobs/sync')
 
 // constant-time comparison, so the secret can't be guessed by timing responses
 const sameSecret = (a = '', b = '') => {
@@ -35,7 +36,17 @@ async function report(req, res) {
   res.json({ ok: true, newStudents: result.newStudents.length, newCourses: result.newCourses.length })
 }
 
+async function sync(req, res) {
+  if (!allowed(req, res)) return
+  if (!syncEnabled) return res.status(503).json({ error: 'SUPABASE_URL / SUPABASE_SERVICE_KEY are not set on the server' })
+
+  const result = await runSync('cron-job.org')
+  console.log(formatSync(result))
+  res.json({ ok: true, ...result }) // counts only, no personal data
+}
+
 // cron-job.org sends GET by default; POST works too
 router.route('/report').get(report).post(report)
+router.route('/sync').get(sync).post(sync)
 
 module.exports = router
